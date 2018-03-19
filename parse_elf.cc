@@ -59,15 +59,15 @@ int main(int argc, char **argv) {
   //   return 1;                                                                                                                                                          
   // }                                                                                                                                                                    
                                                                                                                                                                           
-  printf("file size: %zd\n", pyfile_size);                                                                                                                                
-  printf("program header offset: %zd\n", elf_hdr.e_phoff);                                                                                                                
+  printf("file size: %d\n", pyfile_size);                                                                                                                                
+  printf("program header offset: %d\n", elf_hdr.e_phoff);                                                                                                                
   printf("program header num: %d\n", elf_hdr.e_phnum);                                                                                                                    
-  printf("section header offset: %zd\n", elf_hdr.e_shoff);                                                                                                                
+  printf("section header offset: %d\n", elf_hdr.e_shoff);                                                                                                                
   printf("section header num: %d\n", elf_hdr.e_shnum);                                                                                                                    
   printf("section header string table: %d\n", elf_hdr.e_shstrndx);                                                                                                        
                                                                                                                                                                           
   size_t string_offset = elf_hdr.e_shstrndx;                                                                                                                              
-  printf("string offset at %zd\n", string_offset);                                                                                                                        
+  printf("string offset at %d\n", string_offset);                                                                                                                        
   printf("\n");                                                                                                                                                           
                                                                                                                                                                           
   char *cbytes = (char *)pybytes;                                                                                                                                         
@@ -75,7 +75,7 @@ int main(int argc, char **argv) {
     size_t offset = elf_hdr.e_phoff + i * elf_hdr.e_phentsize;                                                                                                            
     Elf32_Phdr phdr;                                                                                                                                                      
     memmove(&phdr, pybytes + offset, sizeof(phdr));                                                                                                                       
-    printf("PROGRAM HEADER %d, offset = %zd\n", i, offset);                                                                                                               
+    printf("PROGRAM HEADER %d, offset = %d\n", i, offset);                                                                                                               
     printf("========================\n");                                                                                                                                 
     printf("p_type = ");                                                                                                                                                  
     switch (phdr.p_type) {                                                                                                                                                
@@ -113,11 +113,11 @@ int main(int argc, char **argv) {
         printf("UNKNOWN/%d\n", phdr.p_type);                                                                                                                              
         break;                                                                                                                                                            
     }                                                                                                                                                                     
-    printf("p_offset = %zd\n", phdr.p_offset);                                                                                                                            
-    printf("p_vaddr = %zd\n", phdr.p_vaddr);                                                                                                                              
-    printf("p_paddr = %zd\n", phdr.p_paddr);                                                                                                                              
-    printf("p_filesz = %zd\n", phdr.p_filesz);                                                                                                                            
-    printf("p_memsz = %zd\n", phdr.p_memsz);                                                                                                                              
+    printf("p_offset = %d\n", phdr.p_offset);                                                                                                                            
+    printf("p_vaddr = %d\n", phdr.p_vaddr);                                                                                                                              
+    printf("p_paddr = %d\n", phdr.p_paddr);                                                                                                                              
+    printf("p_filesz = %d\n", phdr.p_filesz);                                                                                                                            
+    printf("p_memsz = %d\n", phdr.p_memsz);                                                                                                                              
     printf("p_flags = %d\n", phdr.p_flags);                                                                                                                               
     printf("p_align = %lu\n", phdr.p_align);                                                                                                                              
     printf("\n");                                                                                                                                                         
@@ -125,52 +125,61 @@ int main(int argc, char **argv) {
                                                                                                                                                                           
   size_t dynstr_off = 0;                                                                                                                                                  
   size_t dynsym_off = 0;                                                                                                                                                  
-  size_t dynsym_sz = 0;                                                                                                                                                   
+  size_t dynsym_sz = 0;
+
+  size_t str_off = 0;                                                                                                                                                  
+  size_t sym_off = 0;                                                                                                                                                  
+  size_t sym_sz = 0;                                                                                                                                               
                                                                                                                                                                           
   for (uint16_t i = 0; i < elf_hdr.e_shnum; i++) {                                                                                                                        
     size_t offset = elf_hdr.e_shoff + i * elf_hdr.e_shentsize;                                                                                                            
     Elf32_Shdr shdr;                                                                                                                                                      
     memmove(&shdr, pybytes + offset, sizeof(shdr));                                                                                                                       
     switch (shdr.sh_type) {                                                                                                                                               
-      case SHT_SYMTAB:                                                                                                                                                    
+      case SHT_SYMTAB:
+        sym_off = shdr.sh_offset;                                                                                                                                      
+        sym_sz = shdr.sh_size;                                                                                                                                         
+        printf("found sym table at %d, size %d\n", shdr.sh_offset,                                                                                                   
+               shdr.sh_size);
+       break;                                                                                                       
       case SHT_STRTAB:                                                                                                                                                    
         // TODO: have to handle multiple string tables better                                                                                                             
-        if (!dynstr_off) {                                                                                                                                                
-          printf("found string table at %zd\n", shdr.sh_offset);                                                                                                          
-          dynstr_off = shdr.sh_offset;                                                                                                                                    
+        if (!str_off) {                                                                                                                                                
+          printf("found string table at %d\n", shdr.sh_offset);                                                                                                          
+          str_off = shdr.sh_offset;                                                                                                                                    
         }                                                                                                                                                                 
         break;                                                                                                                                                            
       case SHT_DYNSYM:                                                                                                                                                    
         dynsym_off = shdr.sh_offset;                                                                                                                                      
         dynsym_sz = shdr.sh_size;                                                                                                                                         
-        printf("found dynsym table at %zd, size %zd\n", shdr.sh_offset,                                                                                                   
+        printf("found dynsym table at %d, size %d\n", shdr.sh_offset,                                                                                                   
                shdr.sh_size);                                                                                                                                             
         break;                                                                                                                                                            
       default:                                                                                                                                                            
         break;                                                                                                                                                            
     }                                                                                                                                                                     
   }                                                                                                                                                                       
-  //assert(dynstr_off);                                                                                                                                                   
+  //assert(str_off);                                                                                                                                                   
   //assert(dynsym_off);                                                                                                                                                   
-  printf("final value for dynstr_off = %zd\n", dynstr_off);                                                                                                               
-  printf("final value for dynsym_off = %zd\n", dynsym_off);                                                                                                               
-  printf("final value for dynsym_sz = %zd\n", dynsym_sz);                                                                                                                 
+  printf("final value for str_off = %d\n", str_off);                                                                                                               
+  printf("final value for sym_off = %d\n", sym_off);                                                                                                               
+  printf("final value for sym_sz = %d\n", sym_sz);                                                                                                                 
                                                                                                                                                                           
-  for (size_t j = 0; j * sizeof(Elf32_Sym) < dynsym_sz; j++) {                                                                                                            
+  for (size_t j = 0; j * sizeof(Elf32_Sym) < sym_sz; j++) {                                                                                                            
     Elf32_Sym sym;                                                                                                                                                        
-    size_t absoffset = dynsym_off + j * sizeof(Elf32_Sym);                                                                                                                
+    size_t absoffset = sym_off + j * sizeof(Elf32_Sym);                                                                                                                
     memmove(&sym, cbytes + absoffset, sizeof(sym));                                                                                                                       
-    printf("SYMBOL TABLE ENTRY %zd\n", j);                                                                                                                                
+    printf("SYMBOL TABLE ENTRY %d (%d)\n", j, absoffset);                                                                                                                                
     printf("st_name = %d", sym.st_name);                                                                                                                                  
     if (sym.st_name != 0) {                                                                                                                                               
-      printf(" (%s)", cbytes + dynstr_off + sym.st_name);                                                                                                                 
+      printf(" (%s)", cbytes + str_off + sym.st_name);                                                                                                                 
     }                                                                                                                                                                     
     printf("\n");                                                                                                                                                         
     printf("st_info = %d\n", sym.st_info);                                                                                                                                
     printf("st_other = %d\n", sym.st_other);                                                                                                                              
     printf("st_shndx = %d\n", sym.st_shndx);                                                                                                                              
     printf("st_value = %p\n", (void *)sym.st_value);                                                                                                                      
-    printf("st_size = %zd\n", sym.st_size);                                                                                                                               
+    printf("st_size = %d\n", sym.st_size);                                                                                                                               
     printf("\n");                                                                                                                                                         
   }                                                                                                                                                                       
   printf("\n");                                                                                                                                                           
